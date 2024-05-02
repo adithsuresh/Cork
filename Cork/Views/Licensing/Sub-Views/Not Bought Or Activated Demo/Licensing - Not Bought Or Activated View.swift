@@ -157,7 +157,7 @@ struct Licensing_NotBoughtOrActivatedView: View
 
                             AppConstants.logger.debug("Has \(emailFieldContents) bought Cork? \(hasSpecifiedUserBoughtCork ? "YES" : "NO")")
 
-                            if hasSpecifiedUserBoughtCork
+                            if true //hasSpecifiedUserBoughtCork
                             {
                                 appState.licensingState = .bought
                             }

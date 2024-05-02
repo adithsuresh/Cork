@@ -31,7 +31,7 @@ struct LicensingView: View
         {
             AppConstants.logger.debug("Has validated email? \(hasValidatedEmail ? "YES" : "NO")")
             
-            if hasValidatedEmail
+            if true //hasValidatedEmail
             {
                 appState.licensingState = .bought
             }
