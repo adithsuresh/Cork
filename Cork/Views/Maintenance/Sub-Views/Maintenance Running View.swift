@@ -10,6 +10,7 @@ import SwiftUI
 struct MaintenanceRunningView: View
 {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var brewData: BrewDataStorage
 
     @State var currentMaintenanceStepText: LocalizedStringKey = "maintenance.step.initial"
 
@@ -81,6 +82,7 @@ struct MaintenanceRunningView: View
                         reclaimedSpaceAfterCachePurge = Int(appState.cachedDownloadsFolderSize)
                         
                         await appState.loadCachedDownloadedPackages()
+                        appState.assignPackageTypeToCachedDownloads(brewData: brewData)
                     }
                     else
                     {

@@ -9,8 +9,10 @@ import Foundation
 import AppKit
 @preconcurrency import UserNotifications
 
+/// Class that holds the global state of the app, excluding services
 @MainActor
-class AppState: ObservableObject {
+class AppState: ObservableObject 
+{
     // MARK: - Licensing
     @Published var licensingState: LicensingState = .notBoughtOrHasNotActivatedDemo
     @Published var isShowingLicensingSheet: Bool = false
@@ -43,13 +45,11 @@ class AppState: ObservableObject {
     
     @Published var isShowingUninstallationProgressView: Bool = false
     @Published var isShowingFatalError: Bool = false
-    @Published var fatalAlertType: FatalAlertType = .couldNotApplyTaggedStateToPackages
+    @Published var fatalAlertType: DisplayableAlert? = nil
     
     @Published var isShowingSudoRequiredForUninstallSheet: Bool = false
     @Published var packageTryingToBeUninstalledWithSudo: BrewPackage?
     
-    @Published var offendingDependencyProhibitingUninstallation: String = ""
-    @Published var offendingTapProhibitingRemovalOfTap: String = ""
     @Published var isShowingRemoveTapFailedAlert: Bool = false
     
     @Published var isShowingIncrementalUpdateSheet: Bool = false
@@ -63,12 +63,14 @@ class AppState: ObservableObject {
     @Published var cachedDownloadsFolderSize: Int64 = directorySize(url: AppConstants.brewCachedDownloadsPath)
     @Published var cachedDownloads: [CachedDownload] = .init()
     
+    private var cachedDownloadsTemp: [CachedDownload] = .init()
+    
     @Published var taggedPackageNames: Set<String> = .init()
     
     @Published var corruptedPackage: String = ""
     
     // MARK: - Showing errors
-    func showAlert(errorToShow: FatalAlertType)
+    func showAlert(errorToShow: DisplayableAlert)
     {
         self.fatalAlertType = errorToShow
         
@@ -78,6 +80,8 @@ class AppState: ObservableObject {
     func dismissAlert()
     {
         self.isShowingFatalError = false
+        
+        self.fatalAlertType = nil
     }
     
     // MARK: - Notification setup
@@ -201,12 +205,44 @@ class AppState: ObservableObject {
         
         self.cachedDownloads = self.cachedDownloads.sorted(by: { $0.sizeInBytes < $1.sizeInBytes })
         
-        self.cachedDownloads.append(.init(packageName: String(localized: "start-page.cached-downloads.graph.other-smaller-packages"), sizeInBytes: packagesThatAreTooSmallToDisplaySize))
+        self.cachedDownloads.append(.init(packageName: String(localized: "start-page.cached-downloads.graph.other-smaller-packages"), sizeInBytes: packagesThatAreTooSmallToDisplaySize, packageType: .other))
     }
 }
 
 private extension UNUserNotificationCenter {
     func authorizationStatus() async -> UNAuthorizationStatus {
         await notificationSettings().authorizationStatus
+    }
+}
+
+
+extension AppState
+{
+    func assignPackageTypeToCachedDownloads(brewData: BrewDataStorage) -> Void
+    {
+        var cachedDownloadsTracker: [CachedDownload] = .init()
+        
+        AppConstants.logger.debug("Package tracker in cached download assignment function has \(brewData.installedFormulae.count + brewData.installedCasks.count) packages")
+        
+        for cachedDownload in self.cachedDownloads
+        {
+            if brewData.installedFormulae.contains(where: { $0.name.localizedCaseInsensitiveContains(cachedDownload.packageName.onlyLetters) })
+            { /// The cached package is a formula
+                AppConstants.logger.debug("Cached package \(cachedDownload.packageName) is a formula")
+                cachedDownloadsTracker.append(.init(packageName: cachedDownload.packageName, sizeInBytes: cachedDownload.sizeInBytes, packageType: .formula))
+            }
+            else if brewData.installedCasks.contains(where: { $0.name.localizedCaseInsensitiveContains(cachedDownload.packageName.onlyLetters) })
+            { /// The cached package is a cask
+                AppConstants.logger.debug("Cached package \(cachedDownload.packageName) is a cask")
+                cachedDownloadsTracker.append(.init(packageName: cachedDownload.packageName, sizeInBytes: cachedDownload.sizeInBytes, packageType: .cask))
+            }
+            else
+            { /// The cached package cannot be found
+                AppConstants.logger.debug("Cached package \(cachedDownload.packageName) is unknown")
+                cachedDownloadsTracker.append(.init(packageName: cachedDownload.packageName, sizeInBytes: cachedDownload.sizeInBytes, packageType: .unknown))
+            }
+        }
+        
+        self.cachedDownloads = cachedDownloadsTracker
     }
 }

@@ -16,7 +16,7 @@ struct AddFormulaView: View
     @EnvironmentObject var brewData: BrewDataStorage
     @EnvironmentObject var appState: AppState
 
-    @State private var foundPackageSelection = Set<UUID>()
+    @State private var foundPackageSelection: UUID? = nil
 
     @ObservedObject var searchResultTracker = SearchResultTracker()
     @ObservedObject var installationProgressTracker = InstallationProgressTracker()
@@ -97,22 +97,11 @@ struct AddFormulaView: View
                 {
                     ComplexWithIcon(systemName: "exclamationmark.triangle")
                     {
-                        if let packageBeingInstalled = installationProgressTracker.packagesBeingInstalled.first
-                        { /// Show this when we can pull out which package was being installed
-                            HeadlineWithSubheadline(
-                                headline: "add-package.fatal-error-\(packageBeingInstalled.package.name)",
-                                subheadline: "add-package.fatal-error.description",
-                                alignment: .leading
-                            )
-                        }
-                        else
-                        { /// Otherwise, show a generic error
-                            HeadlineWithSubheadline(
-                                headline: "add-package.fatal-error.generic",
-                                subheadline: "add-package.fatal-error.description",
-                                alignment: .leading
-                            )
-                        }
+                        HeadlineWithSubheadline(
+                            headline: "add-package.fatal-error-\(installationProgressTracker.packageBeingInstalled.package.name)",
+                            subheadline: "add-package.fatal-error.description",
+                            alignment: .leading
+                        )
                     }
 
                     HStack
@@ -135,6 +124,9 @@ struct AddFormulaView: View
 
             case .wrongArchitecture:
                 WrongArchitectureView(installationProgressTracker: installationProgressTracker)
+
+            case .binaryAlreadyExists:
+                BinaryAlreadyExistsView(installationProgressTracker: installationProgressTracker)
 
             case .anotherProcessAlreadyRunning:
                 VStack(alignment: .leading)
@@ -170,29 +162,33 @@ struct AddFormulaView: View
                 }
                 .fixedSize()
 
-                    /*
-            default:
-                VStack(alignment: .leading)
-                {
-                    ComplexWithIcon(systemName: "wifi.exclamationmark")
-                    {
-                        HeadlineWithSubheadline(
-                            headline: "add-package.network-error",
-                            subheadline: "add-package.network-error.description",
-                            alignment: .leading
-                        )
-                    }
+                /*
+                 default:
+                     VStack(alignment: .leading)
+                     {
+                         ComplexWithIcon(systemName: "wifi.exclamationmark")
+                         {
+                             HeadlineWithSubheadline(
+                                 headline: "add-package.network-error",
+                                 subheadline: "add-package.network-error.description",
+                                 alignment: .leading
+                             )
+                         }
 
-                    HStack
-                    {
-                        Spacer()
+                         HStack
+                         {
+                             Spacer()
 
-                        DismissSheetButton()
-                    }
-                }
-                     */
+                             DismissSheetButton()
+                         }
+                     }
+                          */
             }
         }
         .padding()
+        .onDisappear
+        {
+            appState.assignPackageTypeToCachedDownloads(brewData: brewData)
+        }
     }
 }

@@ -13,7 +13,7 @@ struct HomebrewService: Identifiable, Hashable, Codable
     var id: UUID = UUID()
     
     let name: String
-    let status: ServiceStatus
+    var status: ServiceStatus
     
     let user: String?
     
@@ -23,8 +23,6 @@ struct HomebrewService: Identifiable, Hashable, Codable
     
     func revealInFinder()
     {
-        let serviceParentFolder: URL = location.deletingLastPathComponent()
-        
-        NSWorkspace.shared.selectFile(location.path, inFileViewerRootedAtPath: serviceParentFolder.path)
+        location.revealInFinder(.openParentDirectoryAndHighlightTarget)
     }
 }

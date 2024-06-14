@@ -7,17 +7,16 @@
 
 import SwiftUI
 
-
 struct PresentingSearchResultsView: View
 {
     @Environment(\.dismiss) var dismiss
-    
+
     @EnvironmentObject var appState: AppState
 
     @ObservedObject var searchResultTracker: SearchResultTracker
 
     @Binding var packageRequested: String
-    @Binding var foundPackageSelection: Set<UUID>
+    @Binding var foundPackageSelection: UUID?
 
     @Binding var packageInstallationProcessStep: PackageInstallationProcessSteps
 
@@ -26,20 +25,15 @@ struct PresentingSearchResultsView: View
     @State private var isFormulaeSectionCollapsed: Bool = false
     @State private var isCasksSectionCollapsed: Bool = false
 
-    @FocusState var isSearchFieldFocused: Bool
+    @State var isSearchFieldFocused: Bool = true
 
     var body: some View
     {
         VStack
         {
-            TextField("add-package.search.prompt", text: $packageRequested)
-            { _ in
-                foundPackageSelection = Set<UUID>() // Clear all selected items when the user looks for a different package
-            }
-            .focused($isSearchFieldFocused)
-            .onAppear
+            InstallProcessCustomSearchField(search: $packageRequested, isFocused: $isSearchFieldFocused, customPromptText: String(localized: "add-package.search.prompt"))
             {
-                isSearchFieldFocused = true
+                foundPackageSelection = nil // Clear all selected items when the user looks for a different package
             }
 
             List(selection: $foundPackageSelection)
@@ -78,37 +72,42 @@ struct PresentingSearchResultsView: View
                 {
                     Button
                     {
-                        for requestedPackage in foundPackageSelection
-                        {
-                            do
-                            {
-                                let packageToInstall: BrewPackage = try getPackageFromUUID(requestedPackageUUID: requestedPackage, tracker: searchResultTracker)
-
-                                installationProgressTracker.packagesBeingInstalled.append(PackageInProgressOfBeingInstalled(package: packageToInstall, installationStage: .ready, packageInstallationProgress: 0))
-
-                                AppConstants.logger.info("Packages to install: \(installationProgressTracker.packagesBeingInstalled, privacy: .public)")
-
-                                installationProgressTracker.packageBeingCurrentlyInstalled = packageToInstall.name
-                            }
-                            catch let packageByUUIDRetrievalError
-                            {
-                                AppConstants.logger.error("Failed while associating package with its ID: \(packageByUUIDRetrievalError, privacy: .public)")
-                                
-                                dismiss()
-                                
-                                appState.showAlert(errorToShow: .couldNotAssociateAnyPackageWithProvidedPackageUUID)
-                            }
-                        }
-
-                        AppConstants.logger.info("\(installationProgressTracker.packagesBeingInstalled, privacy: .public)")
+                        getRequestedPackages()
 
                         packageInstallationProcessStep = .installing
                     } label: {
                         Text("add-package.install.action")
                     }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(foundPackageSelection.isEmpty)
+                    .disabled(foundPackageSelection == nil)
                 }
+            }
+        }
+    }
+
+    private func getRequestedPackages()
+    {
+        if let requestedPackage = foundPackageSelection
+        {
+            do
+            {
+                let packageToInstall: BrewPackage = try getPackageFromUUID(requestedPackageUUID: requestedPackage, tracker: searchResultTracker)
+
+                installationProgressTracker.packageBeingInstalled = PackageInProgressOfBeingInstalled(package: packageToInstall, installationStage: .ready, packageInstallationProgress: 0)
+
+                #if DEBUG
+                    AppConstants.logger.info("Packages to install: \(installationProgressTracker.packageBeingInstalled.package.name, privacy: .public)")
+                #endif
+            }
+            catch let packageByUUIDRetrievalError
+            {
+                #if DEBUG
+                    AppConstants.logger.error("Failed while associating package with its ID: \(packageByUUIDRetrievalError, privacy: .public)")
+                #endif
+
+                dismiss()
+
+                appState.showAlert(errorToShow: .couldNotAssociateAnyPackageWithProvidedPackageUUID)
             }
         }
     }
